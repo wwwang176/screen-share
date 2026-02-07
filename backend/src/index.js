@@ -115,6 +115,14 @@ wss.on('connection', (ws) => {
         broadcast(msg.meetingCode, { type: 'viewer_joined', count, name, viewers }, ws);
       }
 
+      if (msg.role === 'host') {
+        // Notify viewers that host is (back) online
+        const room = rooms.get(msg.meetingCode);
+        const viewersInRoom = room ? [...room].filter(c => c.role === 'viewer' && c.ws.readyState === 1).length : 0;
+        console.log(`[WS] Broadcasting host_reconnected to ${viewersInRoom} viewer(s)`);
+        broadcastToRole(msg.meetingCode, 'viewer', { type: 'host_reconnected' });
+      }
+
       // Send current state to the joining client
       ws.send(JSON.stringify({ type: 'viewer_count', count, viewers }));
 

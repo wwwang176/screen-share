@@ -1,4 +1,5 @@
 let meetingCode = null;
+let hostToken = null;
 let pc = null;
 let stream = null;
 let timerInterval = null;
@@ -59,6 +60,50 @@ function startTimer() {
   }, 1000);
 }
 
+// Switch UI to live state and start capture + push
+async function enterLiveState(meeting) {
+  meetingCode = meeting.meetingCode;
+
+  // Update URL immediately so host can rejoin if tab is closed
+  history.replaceState(null, '', '/create?code=' + meetingCode);
+
+  document.getElementById('setup').classList.add('hidden');
+  const meetingEl = document.getElementById('meeting');
+  meetingEl.classList.remove('hidden');
+  meetingEl.classList.add('flex');
+
+  document.getElementById('meetingTitle').textContent = meeting.title;
+  document.getElementById('sidebarTitle').textContent = meeting.title;
+
+  // Capture screen
+  stream = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: true,
+  });
+
+  document.getElementById('preview').srcObject = stream;
+
+  stream.getVideoTracks()[0].addEventListener('ended', () => {
+    endMeeting();
+  });
+
+  // WHIP push
+  await pushToWHIP(meeting.whipUrl, stream);
+
+  // Show share link
+  const link = window.location.origin + '/join?code=' + meetingCode;
+  document.getElementById('shareLink').value = link;
+  document.getElementById('linkBox').classList.remove('hidden');
+
+  // Update status badge to Live
+  const badge = document.getElementById('statusBadge');
+  badge.className = 'bg-red-500 text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-red-500/20';
+  badge.innerHTML = '<span class="size-2 rounded-full bg-white live-pulse"></span> 直播中';
+
+  startTimer();
+  connectWebSocket();
+}
+
 async function startMeeting() {
   const btn = document.getElementById('startBtn');
   btn.disabled = true;
@@ -74,44 +119,12 @@ async function startMeeting() {
 
     if (!res.ok) throw new Error('Failed to create meeting');
     const meeting = await res.json();
-    meetingCode = meeting.meetingCode;
 
-    // Switch to live state
-    document.getElementById('setup').classList.add('hidden');
-    const meetingEl = document.getElementById('meeting');
-    meetingEl.classList.remove('hidden');
-    meetingEl.classList.add('flex');
+    // Store host token in localStorage
+    hostToken = meeting.hostToken;
+    localStorage.setItem('hostToken_' + meeting.meetingCode, hostToken);
 
-    document.getElementById('meetingTitle').textContent = meeting.title;
-    document.getElementById('sidebarTitle').textContent = meeting.title;
-
-    // Capture screen
-    stream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
-      audio: true,
-    });
-
-    document.getElementById('preview').srcObject = stream;
-
-    stream.getVideoTracks()[0].addEventListener('ended', () => {
-      endMeeting();
-    });
-
-    // WHIP push
-    await pushToWHIP(meeting.whipUrl, stream);
-
-    // Show share link
-    const link = window.location.origin + '/join?code=' + meetingCode;
-    document.getElementById('shareLink').value = link;
-    document.getElementById('linkBox').classList.remove('hidden');
-
-    // Update status badge to Live
-    const badge = document.getElementById('statusBadge');
-    badge.className = 'bg-red-500 text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-red-500/20';
-    badge.innerHTML = '<span class="size-2 rounded-full bg-white live-pulse"></span> 直播中';
-
-    startTimer();
-    connectWebSocket();
+    await enterLiveState(meeting);
   } catch (err) {
     console.error(err);
     showError(err.message || '無法開始會議');
@@ -120,7 +133,56 @@ async function startMeeting() {
   }
 }
 
+async function rejoinMeeting(code) {
+  const token = localStorage.getItem('hostToken_' + code);
+  if (!token) {
+    showError('找不到主持人憑證，請重新建立會議。');
+    return;
+  }
+
+  const btn = document.getElementById('startBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> 重新連線中...';
+
+  try {
+    const res = await fetch(`/api/meetings/${encodeURIComponent(code)}/host?token=${encodeURIComponent(token)}`);
+
+    if (res.status === 410) {
+      showError('此會議已結束。');
+      localStorage.removeItem('hostToken_' + code);
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined">rocket_launch</span> 開始分享';
+      return;
+    }
+    if (res.status === 403) {
+      showError('主持人憑證無效。');
+      localStorage.removeItem('hostToken_' + code);
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined">rocket_launch</span> 開始分享';
+      return;
+    }
+    if (!res.ok) throw new Error('無法重新加入會議');
+
+    const meeting = await res.json();
+    hostToken = token;
+
+    await enterLiveState(meeting);
+  } catch (err) {
+    console.error(err);
+    showError(err.message || '無法重新加入會議');
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-outlined">rocket_launch</span> 開始分享';
+    // Clear code from URL so user can create fresh
+    history.replaceState(null, '', '/create');
+  }
+}
+
 async function pushToWHIP(whipUrl, mediaStream) {
+  if (pc) {
+    pc.close();
+    pc = null;
+  }
+
   pc = new RTCPeerConnection();
 
   mediaStream.getTracks().forEach((track) => {
@@ -224,6 +286,7 @@ async function endMeeting() {
   }
   if (meetingCode) {
     await fetch(`/api/meetings/${meetingCode}/end`, { method: 'PATCH' }).catch(() => {});
+    localStorage.removeItem('hostToken_' + meetingCode);
   }
 
   window.location.href = '/';
@@ -233,3 +296,12 @@ function copyLink() {
   const link = document.getElementById('shareLink').value;
   navigator.clipboard.writeText(link);
 }
+
+// Check for rejoin on page load
+(function init() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (code) {
+    rejoinMeeting(code);
+  }
+})();

@@ -189,8 +189,19 @@ function connectWebSocket() {
       document.getElementById('endedMask').style.display = 'flex';
     }
     if (msg.type === 'host_disconnected') {
-      document.getElementById('endedMessage').textContent = '主持人已斷線';
+      document.getElementById('endedMessage').textContent = '主持人已斷線，等待重新連線...';
       document.getElementById('endedMask').style.display = 'flex';
+    }
+    if (msg.type === 'host_reconnected') {
+      document.getElementById('endedMask').style.display = 'none';
+      showToast('wifi', '主持人已重新連線');
+      // Reconnect WHEP to pick up new stream
+      if (whepUrl) {
+        retryCount = 0;
+        connectWHEP(whepUrl).catch((err) => {
+          console.warn('[WHEP] Reconnect failed:', err.message);
+        });
+      }
     }
     if (msg.type === 'viewer_joined' || msg.type === 'viewer_left' || msg.type === 'viewer_count') {
       if (msg.viewers && typeof renderViewerListPanel === 'function') {
