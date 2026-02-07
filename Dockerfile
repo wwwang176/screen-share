@@ -11,5 +11,5 @@ COPY backend/package.json backend/package-lock.json* ./
 RUN npm install --production
 COPY backend/src ./src
 COPY --from=frontend-build /build ./public
-EXPOSE 3000
+EXPOSE 8080
 CMD ["node", "src/index.js"]

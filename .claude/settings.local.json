@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:developers.cloudflare.com)",
+      "WebSearch",
+      "Bash(dir:*)",
+      "Bash(powershell:*)",
+      "WebFetch(domain:blog.cloudflare.com)",
+      "WebFetch(domain:webrtchacks.com)",
+      "Bash(ls:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker compose up:*)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:unpkg.com)",
+      "WebFetch(domain:app.unpkg.com)",
+      "WebFetch(domain:esm.sh)",
+      "Bash(npm install:*)",
+      "Bash(npx esbuild:*)",
+      "Bash(node -e:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: screen share meeting platform\n\nDocker Compose app with Express backend, nginx frontend, and PostgreSQL.\nHost shares screen via Cloudflare Stream WHIP, viewers watch via WHEP\nusing @eyevinn/webrtc-player.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)"
+    ]
+  }
+}

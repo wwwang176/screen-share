@@ -52,6 +52,35 @@
       font-size: 0.85rem;
       margin: 0;
     }
+    #unmuteMask {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 30;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    #unmuteMask .unmute-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2.5rem;
+    }
+    #unmuteMask .unmute-text {
+      color: #fff;
+      font-size: 1.25rem;
+    }
   </style>
 </head>
 <body>
@@ -59,9 +88,14 @@
     <span id="statusBadge" class="status status-connecting">Connecting...</span>
     <h1 id="meetingTitle">Joining meeting...</h1>
     <span id="meetingStatus"></span>
+    <button id="muteBtn" style="display:none;margin-left:auto;padding:0.4rem 0.6rem;font-size:1.25rem;line-height:1;" onclick="toggleMute()">&#x1F50A;</button>
   </div>
   <div id="error"></div>
   <video id="stream" autoplay muted playsinline></video>
+  <div id="unmuteMask">
+    <div class="unmute-icon">&#128266;</div>
+    <div class="unmute-text">Click to unmute</div>
+  </div>
   <script type="module" src="/js/join.js"></script>
   <script>
     // Auto-hide overlay after mouse idle
@@ -76,6 +110,20 @@
     document.addEventListener('mousemove', showOverlay);
     document.addEventListener('click', showOverlay);
     showOverlay();
+
+    // Unmute mask
+    document.getElementById('unmuteMask').addEventListener('click', function () {
+      const video = document.getElementById('stream');
+      video.muted = false;
+      this.style.display = 'none';
+      document.getElementById('muteBtn').style.display = 'block';
+    });
+
+    function toggleMute() {
+      const video = document.getElementById('stream');
+      video.muted = !video.muted;
+      document.getElementById('muteBtn').textContent = video.muted ? '\u{1F507}' : '\u{1F50A}';
+    }
   </script>
 </body>
 </html>

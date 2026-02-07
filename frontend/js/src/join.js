@@ -87,6 +87,7 @@ async function connectWHEP(url) {
       document.getElementById('statusBadge').textContent = 'Live';
       document.getElementById('statusBadge').className = 'status status-active';
       document.getElementById('meetingStatus').textContent = '';
+      document.getElementById('unmuteMask').style.display = 'flex';
       retryCount = 0;
     } else if (state === 'failed' || state === 'disconnected') {
       document.getElementById('statusBadge').textContent = 'Reconnecting...';
@@ -121,11 +122,8 @@ async function connectWHEP(url) {
     console.log('[VIDEO] Playing');
   }).catch((err) => {
     console.warn('[VIDEO] Autoplay blocked:', err.message);
-    document.getElementById('meetingStatus').textContent = 'Click the video to start playback';
-    video.addEventListener('click', () => {
-      video.play();
-      video.muted = false;
-    }, { once: true });
+    document.getElementById('meetingStatus').textContent = 'Click to start playback';
+    document.getElementById('unmuteMask').style.display = 'flex';
   });
 }
 
