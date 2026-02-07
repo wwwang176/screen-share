@@ -1,128 +1,192 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="light" lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Join Meeting - Screen Share</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>加入會議 - 螢幕分享</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { "primary": "#137fec" },
+          fontFamily: { "display": ["Inter", "sans-serif"] },
+        },
+      },
+    }
+  </script>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; }
-    .viewer-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 10;
-      padding: 0.75rem 1rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
-      opacity: 1;
-      transition: opacity 0.3s;
+    body { font-family: 'Inter', sans-serif; }
+    .glass-effect {
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.3);
     }
-    .viewer-overlay.hidden {
-      opacity: 0;
-      pointer-events: none;
+    .video-container {
+      background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
     }
-    .viewer-overlay h1 {
-      font-size: 1rem;
-      margin: 0;
+    @keyframes pulse-red {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239,68,68,0); }
     }
-    #stream {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      object-fit: contain;
-      background: #000;
-      border-radius: 0;
-      aspect-ratio: unset;
-    }
-    #error {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 20;
-    }
-    #meetingStatus {
-      color: #888;
-      font-size: 0.85rem;
-      margin: 0;
-    }
-    #unmuteMask {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0, 0, 0, 0.6);
-      z-index: 30;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    #unmuteMask .unmute-icon {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.15);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 2.5rem;
-    }
-    #unmuteMask .unmute-text {
-      color: #fff;
-      font-size: 1.25rem;
-    }
+    .animate-pulse-red { animation: pulse-red 2s infinite; }
+    .controls-bar { transition: opacity 0.3s; }
+    .controls-bar.hidden-controls { opacity: 0; pointer-events: none; }
   </style>
 </head>
-<body>
-  <div class="viewer-overlay" id="overlay">
-    <span id="statusBadge" class="status status-connecting">Connecting...</span>
-    <h1 id="meetingTitle">Joining meeting...</h1>
-    <span id="meetingStatus"></span>
-    <button id="muteBtn" style="display:none;margin-left:auto;padding:0.4rem 0.6rem;font-size:1.25rem;line-height:1;" onclick="toggleMute()">&#x1F50A;</button>
+<body class="font-display bg-[#f6f7f8] text-slate-900 min-h-screen">
+
+  <!-- ==================== 加入大廳 ==================== -->
+  <div id="lobby" class="flex flex-col min-h-screen">
+    <header class="flex items-center justify-between border-b border-gray-200 bg-white px-6 md:px-10 py-4">
+      <div class="flex items-center gap-3">
+        <div class="flex items-center justify-center size-9 rounded-lg bg-primary text-white">
+          <span class="material-symbols-outlined text-[24px]">screen_share</span>
+        </div>
+        <h2 class="text-slate-900 text-xl font-bold leading-tight tracking-tight">螢幕分享</h2>
+      </div>
+    </header>
+    <main class="flex-grow flex items-center justify-center px-4 py-12">
+      <div class="w-full max-w-[500px] flex flex-col gap-8">
+        <div class="text-center">
+          <div id="lobbyBadge" class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-semibold uppercase tracking-wider mb-4">
+            <span class="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></span>
+            載入中...
+          </div>
+          <h1 id="lobbyTitle" class="text-3xl md:text-4xl font-bold text-gray-900 mb-3">正在載入會議...</h1>
+          <p id="lobbySubtitle" class="text-gray-600 text-lg"></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-100">
+          <div class="aspect-video relative overflow-hidden bg-gray-200">
+            <div class="absolute inset-0 bg-gradient-to-br from-primary/10 to-slate-900/60 flex items-center justify-center">
+              <div class="text-white text-center">
+                <span class="material-symbols-outlined text-5xl mb-2">screen_share</span>
+                <p class="text-sm font-medium">螢幕分享將顯示在這裡</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-6 md:p-8 flex flex-col gap-6">
+            <div id="error" class="hidden p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm"></div>
+            <button id="joinBtn" onclick="joinStream()" class="w-full bg-primary hover:bg-primary/90 text-white py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-primary/25 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+              加入會議
+              <span class="material-symbols-outlined">arrow_forward</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
-  <div id="error"></div>
-  <video id="stream" autoplay muted playsinline></video>
-  <div id="unmuteMask">
-    <div class="unmute-icon">&#128266;</div>
-    <div class="unmute-text">Click to unmute</div>
+
+  <!-- ==================== 全螢幕觀看 ==================== -->
+  <div id="viewer" class="hidden overflow-hidden h-screen w-screen">
+    <div class="relative w-full h-full video-container flex items-center justify-center">
+      <video id="stream" class="w-full h-full object-contain" autoplay muted playsinline></video>
+
+      <!-- 頂部浮層 -->
+      <div class="controls-bar absolute top-0 left-0 right-0 p-6 flex items-start justify-between pointer-events-none" id="topBar">
+        <div class="flex flex-col gap-1 pointer-events-auto">
+          <div class="glass-effect rounded-lg px-4 py-2 flex items-center gap-3 shadow-sm">
+            <div class="flex items-center justify-center size-6 rounded bg-primary text-white">
+              <span class="material-symbols-outlined text-[16px]">screen_share</span>
+            </div>
+            <h1 id="viewerTitle" class="text-slate-900 font-semibold text-lg"></h1>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 pointer-events-auto">
+          <div id="viewerBadge" class="glass-effect rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm">
+            <span class="relative flex h-3 w-3">
+              <span class="animate-pulse-red absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+            </span>
+            <span class="text-red-600 font-bold text-sm tracking-wide">LIVE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部控制列 -->
+      <div class="controls-bar absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4" id="bottomBar">
+        <div class="glass-effect rounded-2xl p-2 flex items-center gap-2 shadow-2xl">
+          <button id="muteBtn" onclick="toggleMute()" class="flex flex-col items-center justify-center size-16 rounded-xl hover:bg-slate-100 transition-colors text-slate-700">
+            <span class="material-symbols-outlined text-[28px]">volume_up</span>
+            <span class="text-[10px] font-bold mt-1 uppercase" id="muteBtnLabel">聲音</span>
+          </button>
+          <div class="w-px h-10 bg-slate-200 mx-1"></div>
+          <button onclick="toggleFullscreen()" class="flex flex-col items-center justify-center size-16 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+            <span class="material-symbols-outlined text-[28px]">fullscreen</span>
+            <span class="text-[10px] font-bold mt-1 uppercase">全螢幕</span>
+          </button>
+          <button onclick="leaveMeeting()" class="flex flex-col items-center justify-center size-16 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors">
+            <span class="material-symbols-outlined text-[28px]">call_end</span>
+            <span class="text-[10px] font-bold mt-1 uppercase">離開</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 取消靜音遮罩 -->
+      <div id="unmuteMask" class="absolute inset-0 bg-black/60 z-30 flex flex-col justify-center items-center cursor-pointer gap-4" style="display:none;">
+        <div class="w-20 h-20 rounded-full bg-white/15 flex justify-center items-center">
+          <span class="material-symbols-outlined text-white text-5xl">volume_up</span>
+        </div>
+        <div class="text-white text-xl font-medium">點擊以開啟聲音</div>
+      </div>
+    </div>
   </div>
+
   <script type="module" src="/js/join.js"></script>
   <script>
-    // Auto-hide overlay after mouse idle
     let hideTimer;
-    function showOverlay() {
-      document.getElementById('overlay').classList.remove('hidden');
+    function showControls() {
+      document.getElementById('topBar')?.classList.remove('hidden-controls');
+      document.getElementById('bottomBar')?.classList.remove('hidden-controls');
       clearTimeout(hideTimer);
       hideTimer = setTimeout(() => {
-        document.getElementById('overlay').classList.add('hidden');
+        document.getElementById('topBar')?.classList.add('hidden-controls');
+        document.getElementById('bottomBar')?.classList.add('hidden-controls');
       }, 3000);
     }
-    document.addEventListener('mousemove', showOverlay);
-    document.addEventListener('click', showOverlay);
-    showOverlay();
+    document.addEventListener('mousemove', showControls);
+    document.addEventListener('click', showControls);
 
-    // Unmute mask
-    document.getElementById('unmuteMask').addEventListener('click', function () {
+    document.getElementById('unmuteMask').addEventListener('click', function() {
       const video = document.getElementById('stream');
       video.muted = false;
       this.style.display = 'none';
-      document.getElementById('muteBtn').style.display = 'block';
+      updateMuteBtn();
     });
 
     function toggleMute() {
       const video = document.getElementById('stream');
       video.muted = !video.muted;
-      document.getElementById('muteBtn').textContent = video.muted ? '\u{1F507}' : '\u{1F50A}';
+      updateMuteBtn();
+    }
+
+    function updateMuteBtn() {
+      const video = document.getElementById('stream');
+      const icon = document.querySelector('#muteBtn .material-symbols-outlined');
+      const label = document.getElementById('muteBtnLabel');
+      if (video.muted) {
+        icon.textContent = 'volume_off';
+        label.textContent = '靜音';
+      } else {
+        icon.textContent = 'volume_up';
+        label.textContent = '聲音';
+      }
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.getElementById('viewer').requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    function leaveMeeting() {
+      window.location.href = '/';
     }
   </script>
 </body>

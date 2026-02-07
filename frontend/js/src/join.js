@@ -2,14 +2,49 @@ import { WebRTCPlayer } from '@eyevinn/webrtc-player';
 
 let player = null;
 let whepUrl = null;
+let meetingData = null;
 let retryCount = 0;
 const MAX_RETRIES = 3;
 
 function showError(msg) {
   const el = document.getElementById('error');
   el.textContent = msg;
-  el.style.display = 'block';
+  el.classList.remove('hidden');
 }
+
+// Expose joinStream to global scope for the button onclick
+window.joinStream = async function () {
+  if (!whepUrl) return;
+
+  const btn = document.getElementById('joinBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> 連線中...';
+
+  try {
+    // Switch to viewer
+    document.getElementById('lobby').classList.add('hidden');
+    const viewer = document.getElementById('viewer');
+    viewer.classList.remove('hidden');
+    viewer.classList.add('block');
+    document.body.classList.add('overflow-hidden');
+
+    document.getElementById('viewerTitle').textContent = meetingData.title;
+
+    await connectWHEP(whepUrl);
+
+    // Show unmute mask
+    document.getElementById('unmuteMask').style.display = 'flex';
+  } catch (err) {
+    console.error('[ERROR]', err);
+    // Go back to lobby on failure
+    document.getElementById('viewer').classList.add('hidden');
+    document.getElementById('lobby').classList.remove('hidden');
+    document.body.classList.remove('overflow-hidden');
+    showError(err.message || '連線失敗');
+    btn.disabled = false;
+    btn.innerHTML = '加入會議 <span class="material-symbols-outlined">arrow_forward</span>';
+  }
+};
 
 function startStatsLogging(pc) {
   setInterval(async () => {
@@ -34,31 +69,13 @@ function startStatsLogging(pc) {
 }
 
 function monitorPeerConnection(pc) {
-  console.log('[ICE] Initial state:', pc.iceConnectionState);
-  console.log('[ICE] Gathering state:', pc.iceGatheringState);
-  console.log('[PEER] Initial state:', pc.connectionState);
-  console.log('[SIGNALING] State:', pc.signalingState);
-
-  pc.addEventListener('iceconnectionstatechange', () => {
-    console.log('[ICE] Connection state changed:', pc.iceConnectionState);
-  });
-  pc.addEventListener('icegatheringstatechange', () => {
-    console.log('[ICE] Gathering state changed:', pc.iceGatheringState);
-  });
-  pc.addEventListener('icecandidate', (e) => {
-    if (e.candidate) {
-      console.log('[ICE] Candidate:', e.candidate.type, e.candidate.protocol, e.candidate.address);
-    } else {
-      console.log('[ICE] Gathering complete (null candidate)');
-    }
-  });
   pc.addEventListener('connectionstatechange', () => {
-    console.log('[PEER] State changed:', pc.connectionState);
+    console.log('[PEER] State:', pc.connectionState);
     if (pc.connectionState === 'connected') {
       startStatsLogging(pc);
     }
     if (pc.connectionState === 'failed') {
-      console.error('[PEER] Connection failed, will retry...');
+      console.error('[PEER] Connection failed, retrying...');
       retryConnect();
     }
   });
@@ -83,46 +100,29 @@ async function connectWHEP(url) {
 
   player.on('peer-connection-state-change', (state) => {
     console.log('[PLAYER] Connection state:', state);
-    if (state === 'connected') {
-      document.getElementById('statusBadge').textContent = 'Live';
-      document.getElementById('statusBadge').className = 'status status-active';
-      document.getElementById('meetingStatus').textContent = '';
-      document.getElementById('unmuteMask').style.display = 'flex';
-      retryCount = 0;
-    } else if (state === 'failed' || state === 'disconnected') {
-      document.getElementById('statusBadge').textContent = 'Reconnecting...';
-      document.getElementById('statusBadge').className = 'status status-connecting';
-    }
   });
 
   player.on('no-media', () => {
     console.warn('[PLAYER] No media received');
-    document.getElementById('meetingStatus').textContent = 'Waiting for host to share screen...';
   });
 
   player.on('media-recovered', () => {
     console.log('[PLAYER] Media recovered');
-    document.getElementById('meetingStatus').textContent = '';
   });
 
   console.log('[DEBUG] Loading WHEP:', url);
   await player.load(new URL(url));
   console.log('[DEBUG] WHEP loaded');
 
-  // Monitor the peer connection right after load
   const pc = player.peer;
   if (pc) {
     monitorPeerConnection(pc);
-  } else {
-    console.warn('[DEBUG] No peer connection after load');
   }
 
-  // Check if autoplay was blocked
   video.play().then(() => {
     console.log('[VIDEO] Playing');
   }).catch((err) => {
     console.warn('[VIDEO] Autoplay blocked:', err.message);
-    document.getElementById('meetingStatus').textContent = 'Click to start playback';
     document.getElementById('unmuteMask').style.display = 'flex';
   });
 }
@@ -130,7 +130,7 @@ async function connectWHEP(url) {
 async function retryConnect() {
   if (!whepUrl || retryCount >= MAX_RETRIES) {
     if (retryCount >= MAX_RETRIES) {
-      showError('Failed to connect after multiple attempts');
+      showError('多次嘗試後仍無法連線');
     }
     return;
   }
@@ -150,33 +150,39 @@ async function init() {
   const code = params.get('code');
 
   if (!code) {
-    showError('No meeting code provided');
+    showError('未提供會議代碼');
     return;
   }
 
   try {
     const res = await fetch(`/api/meetings/${encodeURIComponent(code)}`);
     if (!res.ok) {
-      if (res.status === 404) throw new Error('Meeting not found');
-      throw new Error('Failed to load meeting');
+      if (res.status === 404) throw new Error('找不到會議');
+      throw new Error('載入會議失敗');
     }
 
-    const meeting = await res.json();
-    console.log('[DEBUG] Meeting:', meeting);
-    document.getElementById('meetingTitle').textContent = meeting.title;
+    meetingData = await res.json();
+    console.log('[DEBUG] Meeting:', meetingData);
 
-    if (meeting.status === 'ended') {
-      document.getElementById('statusBadge').textContent = 'Ended';
-      document.getElementById('statusBadge').className = 'status status-ended';
-      document.getElementById('meetingStatus').textContent = 'This meeting has ended.';
+    document.getElementById('lobbyTitle').textContent = meetingData.title;
+
+    if (meetingData.status === 'ended') {
+      document.getElementById('lobbyBadge').innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-400"></span> 已結束';
+      document.getElementById('lobbyBadge').className = 'inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-semibold uppercase tracking-wider mb-4';
+      document.getElementById('lobbySubtitle').textContent = '此會議已結束。';
       return;
     }
 
-    whepUrl = meeting.whepUrl;
-    await connectWHEP(whepUrl);
+    // Meeting is active
+    whepUrl = meetingData.whepUrl;
+    document.getElementById('lobbyBadge').innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> 直播中';
+    document.getElementById('lobbyBadge').className = 'inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold uppercase tracking-wider mb-4';
+    document.getElementById('lobbySubtitle').textContent = '主持人正在分享螢幕。';
+    document.getElementById('joinBtn').disabled = false;
   } catch (err) {
     console.error('[ERROR]', err);
-    showError(err.message || 'Failed to join meeting');
+    document.getElementById('lobbyTitle').textContent = '錯誤';
+    showError(err.message || '載入會議失敗');
   }
 }
 
