@@ -6,6 +6,9 @@ let meetingData = null;
 let retryCount = 0;
 let ws = null;
 let whepReady = false;
+let wsRetryDelay = 1000;
+let wsIntentionalClose = false;
+let viewerName = '匿名';
 const MAX_RETRIES = 3;
 
 function showToast(icon, text) {
@@ -161,18 +164,27 @@ async function retryConnect() {
 }
 
 function connectWebSocket() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+
+  // Capture name on first call
+  const nameInput = document.getElementById('viewerName');
+  if (nameInput) {
+    viewerName = (nameInput.value || '').trim().slice(0, 20) || '匿名';
+  }
+
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(`${protocol}//${location.host}/ws`);
 
   ws.addEventListener('open', () => {
-    const name = (document.getElementById('viewerName').value || '').trim().slice(0, 20) || '匿名';
-    ws.send(JSON.stringify({ type: 'join', meetingCode: meetingData.meetingCode, role: 'viewer', name }));
+    wsRetryDelay = 1000;
+    ws.send(JSON.stringify({ type: 'join', meetingCode: meetingData.meetingCode, role: 'viewer', name: viewerName }));
     console.log('[WS] Viewer connected');
   });
 
   ws.addEventListener('message', (e) => {
     const msg = JSON.parse(e.data);
     if (msg.type === 'meeting_ended') {
+      wsIntentionalClose = true;
       document.getElementById('endedMessage').textContent = '會議已結束';
       document.getElementById('endedMask').style.display = 'flex';
     }
@@ -195,8 +207,24 @@ function connectWebSocket() {
 
   ws.addEventListener('close', () => {
     console.log('[WS] Disconnected');
+    ws = null;
+    if (!wsIntentionalClose && meetingData) {
+      console.log(`[WS] Reconnecting in ${wsRetryDelay / 1000}s...`);
+      setTimeout(connectWebSocket, wsRetryDelay);
+      wsRetryDelay = Math.min(wsRetryDelay * 2, 30000);
+    }
   });
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && meetingData && !wsIntentionalClose) {
+    if (!ws || ws.readyState === WebSocket.CLOSED) {
+      console.log('[WS] Page visible, reconnecting...');
+      wsRetryDelay = 1000;
+      connectWebSocket();
+    }
+  }
+});
 
 async function init() {
   const params = new URLSearchParams(window.location.search);

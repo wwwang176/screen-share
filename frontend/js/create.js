@@ -4,6 +4,8 @@ let stream = null;
 let timerInterval = null;
 let startTime = null;
 let ws = null;
+let wsRetryDelay = 1000;
+let wsIntentionalClose = false;
 
 function showToast(icon, text) {
   const container = document.getElementById('toastContainer');
@@ -155,10 +157,13 @@ async function pushToWHIP(whipUrl, mediaStream) {
 }
 
 function connectWebSocket() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(`${protocol}//${location.host}/ws`);
 
   ws.addEventListener('open', () => {
+    wsRetryDelay = 1000;
     ws.send(JSON.stringify({ type: 'join', meetingCode, role: 'host' }));
     console.log('[WS] Host connected');
   });
@@ -179,10 +184,27 @@ function connectWebSocket() {
 
   ws.addEventListener('close', () => {
     console.log('[WS] Disconnected');
+    ws = null;
+    if (!wsIntentionalClose && meetingCode) {
+      console.log(`[WS] Reconnecting in ${wsRetryDelay / 1000}s...`);
+      setTimeout(connectWebSocket, wsRetryDelay);
+      wsRetryDelay = Math.min(wsRetryDelay * 2, 30000);
+    }
   });
 }
 
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && meetingCode && !wsIntentionalClose) {
+    if (!ws || ws.readyState === WebSocket.CLOSED) {
+      console.log('[WS] Page visible, reconnecting...');
+      wsRetryDelay = 1000;
+      connectWebSocket();
+    }
+  }
+});
+
 async function endMeeting() {
+  wsIntentionalClose = true;
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'end_meeting' }));
     ws.close();

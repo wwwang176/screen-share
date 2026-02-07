@@ -69,7 +69,20 @@ function getViewerList(meetingCode) {
   return list;
 }
 
+// Heartbeat: detect dead connections every 30s
+const HEARTBEAT_INTERVAL = 30000;
+setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) return ws.terminate();
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, HEARTBEAT_INTERVAL);
+
 wss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+
   let clientInfo = null; // { meetingCode, role }
 
   ws.on('message', (raw) => {
