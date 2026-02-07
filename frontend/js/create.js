@@ -3,6 +3,36 @@ let pc = null;
 let stream = null;
 let timerInterval = null;
 let startTime = null;
+let ws = null;
+
+function showToast(icon, text) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'pointer-events-auto flex items-center gap-3 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg rounded-xl px-4 py-3 text-sm text-slate-700 transform translate-x-full transition-transform duration-300';
+  toast.innerHTML = `<span class="material-symbols-outlined text-[18px] text-primary">${icon}</span><span>${text}</span>`;
+  container.appendChild(toast);
+  requestAnimationFrame(() => { toast.style.transform = 'translateX(0)'; });
+  setTimeout(() => {
+    toast.style.transform = 'translateX(calc(100% + 1rem))';
+    toast.addEventListener('transitionend', () => toast.remove());
+  }, 3000);
+}
+
+function renderViewerList(viewers) {
+  const container = document.getElementById('viewerList');
+  if (!viewers || viewers.length === 0) {
+    container.innerHTML = '<p class="text-slate-400 text-sm">尚無觀眾加入</p>';
+    return;
+  }
+  container.innerHTML = viewers.map(name =>
+    `<div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+      <div class="flex items-center justify-center size-8 rounded-full bg-primary/10 text-primary">
+        <span class="material-symbols-outlined text-[16px]">person</span>
+      </div>
+      <span class="text-sm font-medium text-slate-700 truncate">${name}</span>
+    </div>`
+  ).join('');
+}
 
 function showError(msg) {
   const el = document.getElementById('error');
@@ -79,6 +109,7 @@ async function startMeeting() {
     badge.innerHTML = '<span class="size-2 rounded-full bg-white live-pulse"></span> 直播中';
 
     startTimer();
+    connectWebSocket();
   } catch (err) {
     console.error(err);
     showError(err.message || '無法開始會議');
@@ -123,7 +154,40 @@ async function pushToWHIP(whipUrl, mediaStream) {
   await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
 }
 
+function connectWebSocket() {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${protocol}//${location.host}/ws`);
+
+  ws.addEventListener('open', () => {
+    ws.send(JSON.stringify({ type: 'join', meetingCode, role: 'host' }));
+    console.log('[WS] Host connected');
+  });
+
+  ws.addEventListener('message', (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'viewer_joined' || msg.type === 'viewer_left' || msg.type === 'viewer_count') {
+      document.getElementById('viewerCount').textContent = msg.count;
+      if (msg.viewers) renderViewerList(msg.viewers);
+    }
+    if (msg.type === 'viewer_joined') {
+      showToast('person_add', `${msg.name || '匿名'} 加入了會議（目前 ${msg.count} 人）`);
+    }
+    if (msg.type === 'viewer_left') {
+      showToast('person_remove', `${msg.name || '匿名'} 離開了會議（目前 ${msg.count} 人）`);
+    }
+  });
+
+  ws.addEventListener('close', () => {
+    console.log('[WS] Disconnected');
+  });
+}
+
 async function endMeeting() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'end_meeting' }));
+    ws.close();
+    ws = null;
+  }
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
@@ -140,9 +204,7 @@ async function endMeeting() {
     await fetch(`/api/meetings/${meetingCode}/end`, { method: 'PATCH' }).catch(() => {});
   }
 
-  const badge = document.getElementById('statusBadge');
-  badge.className = 'bg-slate-500 text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2';
-  badge.innerHTML = '<span class="size-2 rounded-full bg-white"></span> 已結束';
+  window.location.href = '/';
 }
 
 function copyLink() {

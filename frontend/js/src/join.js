@@ -4,7 +4,23 @@ let player = null;
 let whepUrl = null;
 let meetingData = null;
 let retryCount = 0;
+let ws = null;
+let whepReady = false;
 const MAX_RETRIES = 3;
+
+function showToast(icon, text) {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'pointer-events-auto flex items-center gap-3 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg rounded-xl px-4 py-3 text-sm text-slate-700 transform translate-x-full transition-transform duration-300';
+  toast.innerHTML = `<span class="material-symbols-outlined text-[18px] text-primary">${icon}</span><span>${text}</span>`;
+  container.appendChild(toast);
+  requestAnimationFrame(() => { toast.style.transform = 'translateX(0)'; });
+  setTimeout(() => {
+    toast.style.transform = 'translateX(calc(100% + 1rem))';
+    toast.addEventListener('transitionend', () => toast.remove());
+  }, 3000);
+}
 
 function showError(msg) {
   const el = document.getElementById('error');
@@ -13,37 +29,31 @@ function showError(msg) {
 }
 
 // Expose joinStream to global scope for the button onclick
-window.joinStream = async function () {
+window.joinStream = function () {
   if (!whepUrl) return;
 
-  const btn = document.getElementById('joinBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> 連線中...';
+  const video = document.getElementById('stream');
 
-  try {
-    // Switch to viewer
-    document.getElementById('lobby').classList.add('hidden');
-    const viewer = document.getElementById('viewer');
-    viewer.classList.remove('hidden');
-    viewer.classList.add('block');
-    document.body.classList.add('overflow-hidden');
+  // Switch to viewer
+  document.getElementById('lobby').classList.add('hidden');
+  const viewer = document.getElementById('viewer');
+  viewer.classList.remove('hidden');
+  viewer.classList.add('block');
+  document.body.classList.add('overflow-hidden');
 
-    document.getElementById('viewerTitle').textContent = meetingData.title;
+  document.getElementById('viewerTitle').textContent = meetingData.title;
 
-    await connectWHEP(whepUrl);
+  // Move video element into viewer container
+  const container = document.getElementById('viewerVideoContainer');
+  video.className = 'w-full h-full object-contain';
+  container.insertBefore(video, container.firstChild);
 
-    // Show unmute mask
+  // Show unmute mask if audio track exists
+  if (video.srcObject && video.srcObject.getAudioTracks().length > 0) {
     document.getElementById('unmuteMask').style.display = 'flex';
-  } catch (err) {
-    console.error('[ERROR]', err);
-    // Go back to lobby on failure
-    document.getElementById('viewer').classList.add('hidden');
-    document.getElementById('lobby').classList.remove('hidden');
-    document.body.classList.remove('overflow-hidden');
-    showError(err.message || '連線失敗');
-    btn.disabled = false;
-    btn.innerHTML = '加入會議 <span class="material-symbols-outlined">arrow_forward</span>';
   }
+
+  connectWebSocket();
 };
 
 function startStatsLogging(pc) {
@@ -100,6 +110,12 @@ async function connectWHEP(url) {
 
   player.on('peer-connection-state-change', (state) => {
     console.log('[PLAYER] Connection state:', state);
+    if (state === 'connected') {
+      // Hide placeholder once video is streaming
+      const placeholder = document.getElementById('previewPlaceholder');
+      if (placeholder) placeholder.style.display = 'none';
+      whepReady = true;
+    }
   });
 
   player.on('no-media', () => {
@@ -123,7 +139,6 @@ async function connectWHEP(url) {
     console.log('[VIDEO] Playing');
   }).catch((err) => {
     console.warn('[VIDEO] Autoplay blocked:', err.message);
-    document.getElementById('unmuteMask').style.display = 'flex';
   });
 }
 
@@ -143,6 +158,44 @@ async function retryConnect() {
     console.error('[RETRY] Failed:', err);
     retryConnect();
   }
+}
+
+function connectWebSocket() {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${protocol}//${location.host}/ws`);
+
+  ws.addEventListener('open', () => {
+    const name = (document.getElementById('viewerName').value || '').trim().slice(0, 20) || '匿名';
+    ws.send(JSON.stringify({ type: 'join', meetingCode: meetingData.meetingCode, role: 'viewer', name }));
+    console.log('[WS] Viewer connected');
+  });
+
+  ws.addEventListener('message', (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'meeting_ended') {
+      document.getElementById('endedMessage').textContent = '會議已結束';
+      document.getElementById('endedMask').style.display = 'flex';
+    }
+    if (msg.type === 'host_disconnected') {
+      document.getElementById('endedMessage').textContent = '主持人已斷線';
+      document.getElementById('endedMask').style.display = 'flex';
+    }
+    if (msg.type === 'viewer_joined' || msg.type === 'viewer_left' || msg.type === 'viewer_count') {
+      if (msg.viewers && typeof renderViewerListPanel === 'function') {
+        renderViewerListPanel(msg.viewers);
+      }
+    }
+    if (msg.type === 'viewer_joined') {
+      showToast('person_add', `${msg.name || '匿名'} 加入了會議（目前 ${msg.count} 人）`);
+    }
+    if (msg.type === 'viewer_left') {
+      showToast('person_remove', `${msg.name || '匿名'} 離開了會議（目前 ${msg.count} 人）`);
+    }
+  });
+
+  ws.addEventListener('close', () => {
+    console.log('[WS] Disconnected');
+  });
 }
 
 async function init() {
@@ -179,6 +232,15 @@ async function init() {
     document.getElementById('lobbyBadge').className = 'inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold uppercase tracking-wider mb-4';
     document.getElementById('lobbySubtitle').textContent = '主持人正在分享螢幕。';
     document.getElementById('joinBtn').disabled = false;
+    document.getElementById('previewText').textContent = '正在連線預覽...';
+
+    // Start WHEP early for preview
+    try {
+      await connectWHEP(whepUrl);
+    } catch (err) {
+      console.warn('[PREVIEW] Failed to load preview:', err.message);
+      // Not critical — user can still join
+    }
   } catch (err) {
     console.error('[ERROR]', err);
     document.getElementById('lobbyTitle').textContent = '錯誤';
