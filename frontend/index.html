@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screen Share</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="nav">
+    <a href="/">Screen Share</a>
+  </div>
+  <div class="container">
+    <div class="hero">
+      <h1>Screen Share</h1>
+      <p>Share your screen instantly. No sign-up required.</p>
+      <div class="hero-actions">
+        <a href="/create"><button>Start a Meeting</button></a>
+      </div>
+    </div>
+    <div class="card" style="max-width:400px;margin:2rem auto;">
+      <h3 style="margin-bottom:1rem;">Join a Meeting</h3>
+      <form class="join-form" onsubmit="joinMeeting(event)">
+        <input type="text" id="joinCode" placeholder="Enter meeting code" required>
+        <button type="submit">Join</button>
+      </form>
+    </div>
+  </div>
+  <script>
+    function joinMeeting(e) {
+      e.preventDefault();
+      const code = document.getElementById('joinCode').value.trim();
+      if (code) window.location.href = '/join?code=' + encodeURIComponent(code);
+    }
+  </script>
+</body>
+</html>

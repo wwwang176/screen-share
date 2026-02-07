@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join Meeting - Screen Share</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; }
+    .viewer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+      opacity: 1;
+      transition: opacity 0.3s;
+    }
+    .viewer-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .viewer-overlay h1 {
+      font-size: 1rem;
+      margin: 0;
+    }
+    #stream {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+      background: #000;
+      border-radius: 0;
+      aspect-ratio: unset;
+    }
+    #error {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+    }
+    #meetingStatus {
+      color: #888;
+      font-size: 0.85rem;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="viewer-overlay" id="overlay">
+    <span id="statusBadge" class="status status-connecting">Connecting...</span>
+    <h1 id="meetingTitle">Joining meeting...</h1>
+    <span id="meetingStatus"></span>
+  </div>
+  <div id="error"></div>
+  <video id="stream" autoplay muted playsinline></video>
+  <script type="module" src="/js/join.js"></script>
+  <script>
+    // Auto-hide overlay after mouse idle
+    let hideTimer;
+    function showOverlay() {
+      document.getElementById('overlay').classList.remove('hidden');
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        document.getElementById('overlay').classList.add('hidden');
+      }, 3000);
+    }
+    document.addEventListener('mousemove', showOverlay);
+    document.addEventListener('click', showOverlay);
+    showOverlay();
+  </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Start Meeting - Screen Share</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="nav">
+    <a href="/">Screen Share</a>
+  </div>
+  <div class="container">
+    <h1>Start a Meeting</h1>
+    <h2>Share your screen with others</h2>
+
+    <div id="error"></div>
+
+    <div id="setup" class="card">
+      <input type="text" id="title" placeholder="Meeting title (optional)">
+      <button id="startBtn" onclick="startMeeting()">Start Meeting</button>
+    </div>
+
+    <div id="meeting" class="card" style="display:none;">
+      <span id="statusBadge" class="status status-connecting">Connecting...</span>
+      <h3 id="meetingTitle"></h3>
+
+      <video id="preview" autoplay muted playsinline></video>
+
+      <div class="meeting-link" id="linkBox" style="display:none;">
+        <span id="shareLink"></span>
+        <button onclick="copyLink()">Copy</button>
+      </div>
+
+      <div class="actions">
+        <button class="btn-danger" onclick="endMeeting()">End Meeting</button>
+      </div>
+    </div>
+  </div>
+  <script src="/js/create.js"></script>
+</body>
+</html>

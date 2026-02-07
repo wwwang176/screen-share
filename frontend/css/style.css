@@ -1,0 +1,215 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f0f0f;
+  color: #e0e0e0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.container {
+  max-width: 800px;
+  width: 100%;
+  padding: 2rem;
+}
+
+h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: #888;
+  margin-bottom: 2rem;
+}
+
+.card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #2563eb;
+}
+
+button:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: #ef4444;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+input[type="text"] {
+  background: #111;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+input[type="text"]::placeholder {
+  color: #555;
+}
+
+.meeting-link {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  word-break: break-all;
+  font-family: monospace;
+  font-size: 0.9rem;
+  margin: 1rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.meeting-link span {
+  flex: 1;
+}
+
+.meeting-link button {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+video {
+  width: 100%;
+  background: #000;
+  border-radius: 8px;
+  aspect-ratio: 16/9;
+}
+
+.status {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.status-active {
+  background: #065f46;
+  color: #6ee7b7;
+}
+
+.status-ended {
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+
+.status-connecting {
+  background: #78350f;
+  color: #fcd34d;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.nav {
+  width: 100%;
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid #1a1a1a;
+  margin-bottom: 1rem;
+}
+
+.nav a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.nav a:hover {
+  text-decoration: underline;
+}
+
+.hero {
+  text-align: center;
+  padding: 4rem 0 2rem;
+}
+
+.hero h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.hero p {
+  color: #888;
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.hero-actions a {
+  text-decoration: none;
+}
+
+.join-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.join-form input {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.join-form button {
+  flex-shrink: 0;
+}
+
+#error {
+  color: #fca5a5;
+  background: #7f1d1d;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  display: none;
+}

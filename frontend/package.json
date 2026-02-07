@@ -1,0 +1,14 @@
+{
+  "name": "screen-share-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "esbuild js/src/join.js --bundle --outfile=js/join.js --format=esm"
+  },
+  "dependencies": {
+    "@eyevinn/webrtc-player": "^0.13.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}
