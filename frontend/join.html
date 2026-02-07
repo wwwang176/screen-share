@@ -94,15 +94,23 @@
   <!-- ==================== 全螢幕觀看 ==================== -->
   <div id="viewer" class="hidden overflow-hidden h-screen w-screen">
     <div id="viewerVideoContainer" class="relative w-full h-full video-container flex items-center justify-center">
-      <div class="absolute inset-0 flex items-center justify-center text-white/40 pointer-events-none">
+      <div id="connectingPlaceholder" class="absolute inset-0 flex items-center justify-center text-white/40 pointer-events-none">
         <div class="flex flex-col items-center gap-3">
           <span class="material-symbols-outlined text-5xl animate-pulse">cast</span>
           <span class="text-sm font-medium">連線中...</span>
         </div>
       </div>
 
+      <!-- 暫停分享遮罩（DOM 順序在控制列之前，不設 z-index） -->
+      <div id="pausedMask" class="absolute inset-0 bg-black/70 z-10 flex flex-col justify-center items-center gap-4 pointer-events-none" style="display:none;">
+        <div class="w-20 h-20 rounded-full bg-white/15 flex justify-center items-center">
+          <span class="material-symbols-outlined text-white text-5xl">pause_circle</span>
+        </div>
+        <div class="text-white text-xl font-medium">主持人已暫停分享</div>
+      </div>
+
       <!-- 頂部浮層 -->
-      <div class="controls-bar absolute top-0 left-0 right-0 p-6 flex items-start justify-between pointer-events-none" id="topBar">
+      <div class="controls-bar absolute top-0 left-0 right-0 p-6 flex items-start justify-between pointer-events-none z-20" id="topBar">
         <div class="flex flex-col gap-1 pointer-events-auto">
           <div class="glass-effect rounded-lg px-4 py-2 flex items-center gap-3 shadow-sm">
             <div class="flex items-center justify-center size-6 rounded bg-primary text-white">
@@ -123,7 +131,7 @@
       </div>
 
       <!-- 底部控制列 -->
-      <div class="controls-bar absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3" id="bottomBar">
+      <div class="controls-bar absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 z-20" id="bottomBar">
         <!-- 人員清單彈窗 -->
         <div id="viewerPanel" class="hidden glass-effect rounded-2xl p-4 shadow-2xl w-72 max-h-64 overflow-y-auto pointer-events-auto">
           <div class="flex items-center justify-between mb-3">

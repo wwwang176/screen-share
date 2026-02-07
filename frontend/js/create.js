@@ -7,6 +7,7 @@ let startTime = null;
 let ws = null;
 let wsRetryDelay = 1000;
 let wsIntentionalClose = false;
+let paused = false;
 
 function showToast(icon, text) {
   const container = document.getElementById('toastContainer');
@@ -60,6 +61,46 @@ function startTimer() {
   }, 1000);
 }
 
+function showCaptureError() {
+  document.getElementById('captureErrorMask').style.display = 'flex';
+}
+
+function hideCaptureError() {
+  document.getElementById('captureErrorMask').style.display = 'none';
+}
+
+async function captureAndPush(meeting) {
+  hideCaptureError();
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: true,
+    });
+  } catch (err) {
+    console.warn('[CAPTURE] User denied or failed:', err.message);
+    showCaptureError();
+    // Wait for user to click retry (retryCapture sets a resolve callback)
+    await new Promise((resolve) => { window._captureRetryResolve = resolve; });
+    return captureAndPush(meeting);
+  }
+
+  document.getElementById('preview').srcObject = stream;
+
+  stream.getVideoTracks()[0].addEventListener('ended', () => {
+    endMeeting();
+  });
+
+  await pushToWHIP(meeting.whipUrl, stream);
+}
+
+function retryCapture() {
+  hideCaptureError();
+  if (window._captureRetryResolve) {
+    window._captureRetryResolve();
+    window._captureRetryResolve = null;
+  }
+}
+
 // Switch UI to live state and start capture + push
 async function enterLiveState(meeting) {
   meetingCode = meeting.meetingCode;
@@ -75,25 +116,13 @@ async function enterLiveState(meeting) {
   document.getElementById('meetingTitle').textContent = meeting.title;
   document.getElementById('sidebarTitle').textContent = meeting.title;
 
-  // Capture screen
-  stream = await navigator.mediaDevices.getDisplayMedia({
-    video: true,
-    audio: true,
-  });
-
-  document.getElementById('preview').srcObject = stream;
-
-  stream.getVideoTracks()[0].addEventListener('ended', () => {
-    endMeeting();
-  });
-
-  // WHIP push
-  await pushToWHIP(meeting.whipUrl, stream);
-
-  // Show share link
+  // Show share link immediately after room is created
   const link = window.location.origin + '/join?code=' + meetingCode;
   document.getElementById('shareLink').value = link;
   document.getElementById('linkBox').classList.remove('hidden');
+
+  // Capture screen
+  await captureAndPush(meeting);
 
   // Update status badge to Live
   const badge = document.getElementById('statusBadge');
@@ -290,6 +319,39 @@ async function endMeeting() {
   }
 
   window.location.href = '/';
+}
+
+function togglePause() {
+  if (!stream) return;
+  paused = !paused;
+  stream.getVideoTracks().forEach((t) => { t.enabled = !paused; });
+  stream.getAudioTracks().forEach((t) => { t.enabled = !paused; });
+
+  // Update button UI
+  const icon = document.querySelector('#pauseBtn .material-symbols-outlined');
+  const label = document.getElementById('pauseBtnLabel');
+  if (paused) {
+    icon.textContent = 'play_arrow';
+    label.textContent = '恢復分享';
+  } else {
+    icon.textContent = 'pause';
+    label.textContent = '暫停分享';
+  }
+
+  // Update status badge
+  const badge = document.getElementById('statusBadge');
+  if (paused) {
+    badge.className = 'bg-yellow-500 text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2 shadow-lg';
+    badge.innerHTML = '<span class="material-symbols-outlined text-[14px]">pause</span> 已暫停';
+  } else {
+    badge.className = 'bg-red-500 text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-red-500/20';
+    badge.innerHTML = '<span class="size-2 rounded-full bg-white live-pulse"></span> 直播中';
+  }
+
+  // Notify viewers via WebSocket
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: paused ? 'pause_stream' : 'resume_stream' }));
+  }
 }
 
 function copyLink() {

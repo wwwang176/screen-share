@@ -46,10 +46,10 @@ window.joinStream = function () {
 
   document.getElementById('viewerTitle').textContent = meetingData.title;
 
-  // Move video element into viewer container
+  // Move video element into viewer container (append so it layers above placeholders)
   const container = document.getElementById('viewerVideoContainer');
-  video.className = 'w-full h-full object-contain';
-  container.insertBefore(video, container.firstChild);
+  video.className = 'absolute inset-0 w-full h-full object-contain';
+  container.appendChild(video);
 
   // Show unmute mask if audio track exists
   if (video.srcObject && video.srcObject.getAudioTracks().length > 0) {
@@ -117,6 +117,8 @@ async function connectWHEP(url) {
       // Hide placeholder once video is streaming
       const placeholder = document.getElementById('previewPlaceholder');
       if (placeholder) placeholder.style.display = 'none';
+      const connecting = document.getElementById('connectingPlaceholder');
+      if (connecting) connecting.style.display = 'none';
       whepReady = true;
     }
   });
@@ -192,8 +194,17 @@ function connectWebSocket() {
       document.getElementById('endedMessage').textContent = '主持人已斷線，等待重新連線...';
       document.getElementById('endedMask').style.display = 'flex';
     }
+    if (msg.type === 'stream_paused') {
+      document.getElementById('pausedMask').style.display = 'flex';
+      showToast('pause_circle', '主持人已暫停分享');
+    }
+    if (msg.type === 'stream_resumed') {
+      document.getElementById('pausedMask').style.display = 'none';
+      showToast('play_circle', '主持人已恢復分享');
+    }
     if (msg.type === 'host_reconnected') {
       document.getElementById('endedMask').style.display = 'none';
+      document.getElementById('pausedMask').style.display = 'none';
       showToast('wifi', '主持人已重新連線');
       // Reconnect WHEP to pick up new stream
       if (whepUrl) {

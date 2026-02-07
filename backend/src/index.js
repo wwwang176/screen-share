@@ -133,6 +133,16 @@ wss.on('connection', (ws) => {
       broadcastToRole(clientInfo.meetingCode, 'viewer', { type: 'meeting_ended' });
       console.log(`[WS] Host ended meeting ${clientInfo.meetingCode}`);
     }
+
+    if (msg.type === 'pause_stream' && clientInfo && clientInfo.role === 'host') {
+      broadcastToRole(clientInfo.meetingCode, 'viewer', { type: 'stream_paused' });
+      console.log(`[WS] Host paused stream ${clientInfo.meetingCode}`);
+    }
+
+    if (msg.type === 'resume_stream' && clientInfo && clientInfo.role === 'host') {
+      broadcastToRole(clientInfo.meetingCode, 'viewer', { type: 'stream_resumed' });
+      console.log(`[WS] Host resumed stream ${clientInfo.meetingCode}`);
+    }
   });
 
   ws.on('close', () => {
