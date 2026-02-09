@@ -3,6 +3,9 @@ const path = require('path');
 const express = require('express');
 const { WebSocketServer } = require('ws');
 const meetingsRouter = require('./routes/meetings');
+const migrate = require('./db/migrate');
+
+migrate().catch((err) => console.error('Migration failed:', err));
 
 const app = express();
 app.use(express.json());
