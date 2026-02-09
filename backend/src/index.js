@@ -133,6 +133,7 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'end_meeting' && clientInfo && clientInfo.role === 'host') {
+      clientInfo.ended = true;
       broadcastToRole(clientInfo.meetingCode, 'viewer', { type: 'meeting_ended' });
       console.log(`[WS] Host ended meeting ${clientInfo.meetingCode}`);
     }
@@ -166,7 +167,7 @@ wss.on('connection', (ws) => {
       console.log(`[WS] Viewer "${clientInfo.name}" left room ${clientInfo.meetingCode} (viewers: ${count})`);
     }
 
-    if (clientInfo.role === 'host') {
+    if (clientInfo.role === 'host' && !clientInfo.ended) {
       broadcastToRole(clientInfo.meetingCode, 'viewer', { type: 'host_disconnected' });
       console.log(`[WS] Host disconnected from room ${clientInfo.meetingCode}`);
     }

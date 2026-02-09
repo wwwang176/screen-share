@@ -190,7 +190,7 @@ function connectWebSocket() {
       document.getElementById('endedMessage').textContent = '會議已結束';
       document.getElementById('endedMask').style.display = 'flex';
     }
-    if (msg.type === 'host_disconnected') {
+    if (msg.type === 'host_disconnected' && !wsIntentionalClose) {
       document.getElementById('endedMessage').textContent = '主持人已斷線，等待重新連線...';
       document.getElementById('endedMask').style.display = 'flex';
     }

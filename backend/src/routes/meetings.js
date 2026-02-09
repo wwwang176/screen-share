@@ -95,11 +95,11 @@ router.get('/:code', async (req, res) => {
   }
 });
 
-// End a meeting
+// End a meeting (delete from DB)
 router.patch('/:code/end', async (req, res) => {
   try {
     const result = await pool.query(
-      `UPDATE meetings SET status = 'ended' WHERE meeting_code = $1 RETURNING *`,
+      `DELETE FROM meetings WHERE meeting_code = $1 RETURNING *`,
       [req.params.code]
     );
 
@@ -112,7 +112,7 @@ router.patch('/:code/end', async (req, res) => {
       await deleteLiveInput(meeting.cf_live_input_uid).catch(() => {});
     }
 
-    res.json({ meetingCode: meeting.meeting_code, status: 'ended' });
+    res.json({ meetingCode: meeting.meeting_code, status: 'deleted' });
   } catch (err) {
     console.error('End meeting error:', err);
     res.status(500).json({ error: 'Failed to end meeting' });
