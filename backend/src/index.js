@@ -1,14 +1,27 @@
 const http = require('http');
 const path = require('path');
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { WebSocketServer } = require('ws');
 const meetingsRouter = require('./routes/meetings');
 const migrate = require('./db/migrate');
+const pool = require('./db');
 
 migrate().catch((err) => console.error('Migration failed:', err));
 
 const app = express();
 app.use(express.json());
+
+// Rate limiting: 100 requests per 15 minutes per IP
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/api/', limiter);
 
 app.use('/api/meetings', meetingsRouter);
 
@@ -97,6 +110,27 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'join' && msg.meetingCode && msg.role) {
+      // Verify host token if joining as host
+      if (msg.role === 'host') {
+        try {
+          const result = await pool.query(
+            'SELECT host_token FROM meetings WHERE meeting_code = $1',
+            [msg.meetingCode]
+          );
+
+          if (result.rows.length === 0 || result.rows[0].host_token !== msg.token) {
+            ws.send(JSON.stringify({ type: 'error', message: 'Invalid host token' }));
+            ws.close();
+            return;
+          }
+        } catch (err) {
+          console.error('[WS] Host token verification error:', err);
+          ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
+          ws.close();
+          return;
+        }
+      }
+
       // Register client in room
       clientInfo = { meetingCode: msg.meetingCode, role: msg.role };
 

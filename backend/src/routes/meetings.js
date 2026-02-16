@@ -1,12 +1,22 @@
 const { Router } = require('express');
+const rateLimit = require('express-rate-limit');
 const { nanoid } = require('nanoid');
 const pool = require('../db');
 const { createLiveInput, deleteLiveInput } = require('../services/cloudflare');
 
 const router = Router();
 
+// Stricter rate limit for meeting creation: 5 meetings per hour
+const createMeetingLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many meetings created, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Create a new meeting
-router.post('/', async (req, res) => {
+router.post('/', createMeetingLimiter, async (req, res) => {
   try {
     const meetingCode = nanoid(10);
     const hostToken = nanoid(32);
@@ -98,13 +108,19 @@ router.get('/:code', async (req, res) => {
 // End a meeting (delete from DB)
 router.patch('/:code/end', async (req, res) => {
   try {
+    const hostToken = req.query.token || req.body.token;
+
+    if (!hostToken) {
+      return res.status(401).json({ error: 'Host token required' });
+    }
+
     const result = await pool.query(
-      `DELETE FROM meetings WHERE meeting_code = $1 RETURNING *`,
-      [req.params.code]
+      `DELETE FROM meetings WHERE meeting_code = $1 AND host_token = $2 RETURNING *`,
+      [req.params.code, hostToken]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Meeting not found' });
+      return res.status(404).json({ error: 'Meeting not found or invalid token' });
     }
 
     const meeting = result.rows[0];
