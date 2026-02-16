@@ -6,10 +6,10 @@ const { createLiveInput, deleteLiveInput } = require('../services/cloudflare');
 
 const router = Router();
 
-// Stricter rate limit for meeting creation: 5 meetings per hour
+// Rate limit for meeting creation: 50 meetings per hour per IP
 const createMeetingLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: 50,
   message: { error: 'Too many meetings created, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
