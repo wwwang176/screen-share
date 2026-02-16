@@ -101,7 +101,7 @@ wss.on('connection', (ws) => {
 
   let clientInfo = null; // { meetingCode, role }
 
-  ws.on('message', (raw) => {
+  ws.on('message', async (raw) => {
     let msg;
     try {
       msg = JSON.parse(raw);
